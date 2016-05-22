@@ -32,6 +32,8 @@ void* vehicleFunc(void *arg){
 	mkfifo(vehicle.fifoName,0660);
 	int fdWrite;
 
+	printf("Entered in thread \n");
+
 	switch(vehicle.direction){
 	case NORTH:
 		fdWrite = open("fifoN",O_WRONLY | O_NONBLOCK);
@@ -47,6 +49,13 @@ void* vehicleFunc(void *arg){
 		break;
 	}
 
+
+	if(fdWrite != -1){
+		write(fdWrite,&vehicle,sizeof(Vehicle));
+		close(fdWrite);
+	}
+
+	printf("Passed the fdWrite \n");
 
 
 
