@@ -11,13 +11,20 @@
 
 #define FIFO_LENGTH 10
 #define BUFFER_SIZE 100
+#define MAX_STATUS 20
+#define DEST 10
+#define PARK_FULL 2 //log = cheio
+#define ENTERING_VEHICLE 4 //log = entrada
+#define LEAVING_VEHICLE 5 //log = saida
+
+#define GERADOR_LOG "gerador.log"
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 float clockUnit;
 float genTime;
 int id = 0;
-
+int fd_gerador_log;
 
 typedef enum {NORTH, SOUTH, EAST, WEST} Direction;
 
@@ -30,6 +37,27 @@ typedef struct {
   float currentTick;
 } Vehicle;
 
+/*
+void writeToFile(Vehicle vehicle, int state){
+
+	char buffer[BUFFER_SIZE];
+	char status[MAX_STATUS];
+	char dest[DEST];
+
+	if (state == 2) strcpy(status, "cheio");
+	if (state == 4) strcpy(status, "entrada");
+	if (state == 5) strcpy(status, "saida");
+
+	if (vehicle.direction == "NORTH") strcpy (dest, "N");
+	if (vehicle.direction == "SOUTH") strcpy (dest, "S");
+	if (vehicle.direction == "EAST") strcpy (dest, "E");
+	if (vehicle.direction == "WEST") strcpy (dest, "O");
+
+
+
+}
+
+*/
 
 void* vehicleFunc(void *arg){
 	void *ret = NULL;
@@ -142,6 +170,11 @@ int main(int argc, char* argv[]){
 	clockUnit = atoi(argv[2]);
 	float numberOfTicks;
 	int ticksForNextCar = 0;
+
+	fd_gerador_log = open(GERADOR_LOG, O_WRONLY | O_CREAT , 0600);
+	if (fd_gerador_log < 0){
+		perror("Error creation gerador.log");
+	}
 
 	numberOfTicks = (genTime / clockUnit) *1000; // Number of events that are going to happen
 	printf("Number of ticks: %f \n",numberOfTicks);

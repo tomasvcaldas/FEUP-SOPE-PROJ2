@@ -26,13 +26,9 @@ int parkOpen;
 int state;
 int openTime;
 int occupiedSpots = 0;
+int fd_park_log;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef enum {NORTH, SOUTH, EAST, WEST} Direction;
-
-int fd_park_log;
-
-
-
 
 typedef struct {
   Direction direction;
@@ -47,6 +43,7 @@ void writeToFile (Vehicle *vehicle, int state){
 
 	char buffer[BUFFER_SIZE];
 	char status[MAX_STATUS];
+
 
 	if (state == 1) strcpy(status, "encerrado");
 	if (state == 2) strcpy(status, "cheio");
