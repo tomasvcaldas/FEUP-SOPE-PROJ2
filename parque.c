@@ -10,12 +10,16 @@
 #include <fcntl.h>
 
 #define FIFO_LENGTH 10
+#define BUFFER_SIZE 100
+#define MAX_STATUS 20
 #define PARK_OPEN 0
-#define PARK_CLOSED 1
-#define PARK_FULL 2
-#define PARKING_VEHICLE 3
-#define ENTERING_VEHICLE 4
+#define PARK_CLOSED 1 //log = encerrado
+#define PARK_FULL 2 //log = cheio
+#define PARKING_VEHICLE 3 //log = estacionamento
+#define ENTERING_VEHICLE 4 //log = entrada
+#define LEAVING_VEHICLE 5 //log = saida
 #define LAST_VEHICLE_ID -1
+#define PARK_LOG "parque.log"
 
 int capacity;
 int parkOpen;
@@ -25,6 +29,8 @@ int occupiedSpots = 0;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 typedef enum {NORTH, SOUTH, EAST, WEST} Direction;
 
+int fd_park_log;
+
 
 
 
@@ -32,10 +38,30 @@ typedef struct {
   Direction direction;
   int id;
   float parkedTime;
-  char fifoName[FIFO_LENGTH] ;
+  char fifoName[FIFO_LENGTH];
+  int initialTicks;
 } Vehicle;
 
 
+void writeToFile (Vehicle *vehicle, int state){
+
+	char buffer[BUFFER_SIZE];
+	char status[MAX_STATUS];
+
+	if (state == 1) strcpy(status, "encerrado");
+	if (state == 2) strcpy(status, "cheio");
+	if (state == 3) strcpy(status, "estacionamento");
+	if (state == 4) strcpy(status, "entrada");
+	if (state == 5) strcpy(status, "saida");
+
+	//Formato - ticks , lugares, id , estado
+
+	sprintf(buffer, "%8d ; %4d ; %7d ; %s\n", vehicle->initialTicks, capacity-occupiedSpots, vehicle->id , status);
+
+	write(fd_park_log, buffer,strlen(buffer));
+
+	strcpy(buffer, "");
+}
 
 
 void *parkAVehicle(void* arg){
@@ -54,8 +80,10 @@ void *parkAVehicle(void* arg){
 		pthread_mutex_unlock(&mutex); //Unlocks all the other threads.
 		printf("Vehicle %d is parking ...\n", vehicle.id);
 		state = PARKING_VEHICLE;
+		writeToFile(&vehicle, PARKING_VEHICLE);
 		usleep(vehicle.parkedTime * 1000); // suspends execution of the calling thread, in miliseconds (*1000);
 		occupiedSpots--;
+		state = LEAVING_VEHICLE;
 	}
 
 	else if(parkOpen == PARK_CLOSED){ // park is closed
@@ -71,6 +99,8 @@ void *parkAVehicle(void* arg){
 	}
 
 	write(fdWrite,&state,sizeof(int));
+	writeToFile(&vehicle, state);
+
 	return ret;
 }
 
@@ -236,6 +266,15 @@ int main (int argc, char* argv[]){
 		perror("Invalid number of arguments! \n");
 		exit(1);
 	}
+
+
+	fd_park_log = open(PARK_LOG, O_WRONLY | O_CREAT , 0600);
+	if(fd_park_log <0){
+		perror ("Error opening parque.log");
+	}
+	char buffer[] = "t(ticks) ; nlug ; id_viat ; observ\n";
+	write(fd_park_log, buffer, strlen(buffer));
+
 	printf("Park is open! \n");
 	state = PARK_OPEN; //park open
 	parkOpen = PARK_OPEN;

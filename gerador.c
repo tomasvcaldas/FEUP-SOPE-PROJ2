@@ -26,6 +26,7 @@ typedef struct {
   char fifoName[FIFO_LENGTH] ;
 } Vehicle;
 
+
 void* vehicleFunc(void *arg){
 	void *ret = NULL;
 	Vehicle vehicle = *(Vehicle*) arg;
@@ -93,7 +94,8 @@ int genVehicle(){
 	vehicle.parkedTime = pTime;
 
 
-	if(pthread_create(&mainVehicle, NULL, vehicleFunc,&vehicle) != 0) perror("Can't create Main Vehicle thread! \n");
+	if(pthread_create(&mainVehicle, NULL, vehicleFunc,&vehicle) != 0)
+		perror("Can't create Main Vehicle thread! \n");
 
 	int nextCarTime;
 	int park = rand() % 10;
@@ -103,16 +105,16 @@ int genVehicle(){
 	else nextCarTime = 0;
 
 
-	return nextCarTime;
+	return nextCarTime; //tempo ate ao proximo veiculo
 }
 
 
 int main(int argc, char* argv[]){
 
 	if(argc != 3){
-				perror("Invalid number of arguments! \n");
-				exit(1);
-			}
+		perror("Invalid number of arguments! \n");
+		exit(1);
+	}
 
 	srand(time(NULL));
 	genTime = atoi(argv[0]);
