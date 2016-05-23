@@ -242,9 +242,13 @@ void close_park(){
 	strcpy(lastVehicle.fifoName, "over");
 
 	int fdNorth = open("fifoN", O_WRONLY);
+		if(fdNorth < 0) perror("Error opening North Fifo... \n");
 	int fdSouth = open("fifoS", O_WRONLY);
+		if(fdSouth < 0) perror("Error opening South Fifo... \n");
 	int fdEast = open("fifoE", O_WRONLY);
+		if(fdEast < 0) perror("Error opening East Fifo... \n");
 	int fdWest = open("fifoW", O_WRONLY);
+		if(fdWest < 0) perror("Error opening West Fifo... \n");
 
 
 

@@ -11,6 +11,8 @@
 
 #define FIFO_LENGTH 10
 
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 float clockUnit;
 float genTime;
 int id = 0;
@@ -24,6 +26,7 @@ typedef struct {
   int id;
   float parkedTime;
   char fifoName[FIFO_LENGTH] ;
+  float currentTick;
 } Vehicle;
 
 
@@ -33,7 +36,7 @@ void* vehicleFunc(void *arg){
 	mkfifo(vehicle.fifoName,0660);
 	int fdWrite;
 
-	printf("Entered in thread \n");
+	//printf("Entered in thread \n"); dá print dist
 
 	switch(vehicle.direction){
 	case NORTH:
@@ -56,43 +59,57 @@ void* vehicleFunc(void *arg){
 		close(fdWrite);
 	}
 
-	printf("Passed the fdWrite \n");
+	//printf("Passed the fdWrite \n"); dá print disto
 
 
 
 	return ret;
 }
 
-int genVehicle(){
+int genVehicle(float tick){
 	Vehicle vehicle;
 	vehicle.id = id;
 	id++;
 
 	pthread_t mainVehicle;
 
+	vehicle.currentTick = tick;
 	int dir = rand() %  4;
 	switch(dir){
 	case 0:
 		vehicle.direction = NORTH;
-		vehicle.fifoName = "fifoN";
 		break;
 	case 1:
 		vehicle.direction = SOUTH;
-		vehicle.fifoName = "fifoS";
 		break;
 	case 2:
 		vehicle.direction = EAST;
-		vehicle.fifoName = "fifoE";
 		break;
 	case 3:
 		vehicle.direction = WEST;
-		vehicle.fifoName = "fifoW";
 		break;
 	}
 
 	float pTime = ((rand() %10)+1) * clockUnit;
 	vehicle.parkedTime = pTime;
 
+	sprintf(vehicle.fifoName,"%s%d","fifo",id);
+	printf("Vehicle %d:     ",vehicle.id);
+	switch(vehicle.direction){
+	case NORTH:
+		printf("North entrance   ");
+		break;
+	case SOUTH:
+		printf("South entrance  ");
+		break;
+	case EAST:
+		printf("East entrace   ");
+		break;
+	case WEST:
+		printf("West entrance   ");
+		break;
+	}
+	printf("%f \n",vehicle.currentTick);
 
 	if(pthread_create(&mainVehicle, NULL, vehicleFunc,&vehicle) != 0)
 		perror("Can't create Main Vehicle thread! \n");
@@ -117,8 +134,8 @@ int main(int argc, char* argv[]){
 	}
 
 	srand(time(NULL));
-	genTime = atoi(argv[0]);
-	clockUnit = atoi(argv[1]);
+	genTime = atoi(argv[1]);
+	clockUnit = atoi(argv[2]);
 	float numberOfTicks;
 	int ticksForNextCar = 0;
 
@@ -126,7 +143,7 @@ int main(int argc, char* argv[]){
 	printf("Number of ticks: %f \n",numberOfTicks);
 
 	do{
-		if(ticksForNextCar == 0) ticksForNextCar = genVehicle();
+		if(ticksForNextCar == 0) ticksForNextCar = genVehicle(numberOfTicks);
 		else ticksForNextCar--;
 		usleep(clockUnit * 1000);
 		numberOfTicks--;
