@@ -10,6 +10,7 @@
 #include <fcntl.h>
 
 #define FIFO_LENGTH 10
+#define BUFFER_SIZE 100
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -93,7 +94,10 @@ int genVehicle(float tick){
 	float pTime = ((rand() %10)+1) * clockUnit;
 	vehicle.parkedTime = pTime;
 
-	sprintf(vehicle.fifoName,"%s%d","fifo",id);
+	char buffer[BUFFER_SIZE];
+
+	sprintf(buffer,"%s%d","fifo",id);
+	strcpy(vehicle.fifoName, buffer);
 	printf("Vehicle %d:     ",vehicle.id);
 	switch(vehicle.direction){
 	case NORTH:
