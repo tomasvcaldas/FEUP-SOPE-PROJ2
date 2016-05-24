@@ -35,6 +35,7 @@ typedef struct {
   float parkedTime;
   char fifoName[FIFO_LENGTH] ;
   float currentTick;
+  int numberOfTicks;
 } Vehicle;
 
 /*
@@ -62,7 +63,9 @@ void writeToFile(Vehicle vehicle, int state){
 void* vehicleFunc(void *arg){
 	void *ret = NULL;
 	Vehicle vehicle = *(Vehicle*) arg;
-	mkfifo(vehicle.fifoName,0660);
+	char fifoPath[64];
+	sprintf(fifoPath, "/tmp/%s", vehicle.fifoName);
+	mkfifo(fifoPath,0660);
 	int fdWrite;
 
 	//printf("Entered in thread \n"); dá print dist
@@ -88,20 +91,19 @@ void* vehicleFunc(void *arg){
 		close(fdWrite);
 	}
 
-	//printf("Passed the fdWrite \n"); dá print disto
-
-
+	close(fdWrite);
+	unlink(fifoPath);
 
 	return ret;
 }
 
-int genVehicle(float tick){
+int genVehicle(float tick, float totalTick){
 	Vehicle vehicle;
 	vehicle.id = id;
 	id++;
 
 	pthread_t mainVehicle;
-
+	vehicle.numberOfTicks = totalTick;
 	vehicle.currentTick = tick;
 	int dir = rand() %  4;
 	switch(dir){
@@ -169,6 +171,7 @@ int main(int argc, char* argv[]){
 	genTime = atoi(argv[1]);
 	clockUnit = atoi(argv[2]);
 	float numberOfTicks;
+	float totalTicks;
 	int ticksForNextCar = 0;
 
 	fd_gerador_log = open(GERADOR_LOG, O_WRONLY | O_CREAT , 0600);
@@ -177,10 +180,11 @@ int main(int argc, char* argv[]){
 	}
 
 	numberOfTicks = (genTime / clockUnit) *1000; // Number of events that are going to happen
+	totalTicks = numberOfTicks;
 	printf("Number of ticks: %f \n",numberOfTicks);
 
 	do{
-		if(ticksForNextCar == 0) ticksForNextCar = genVehicle(numberOfTicks);
+		if(ticksForNextCar == 0) ticksForNextCar = genVehicle(numberOfTicks,totalTicks);
 		else ticksForNextCar--;
 		usleep(clockUnit * 1000);
 		numberOfTicks--;

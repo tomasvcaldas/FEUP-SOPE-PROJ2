@@ -10,7 +10,7 @@
 #include <fcntl.h>
 
 #define FIFO_LENGTH 10
-#define BUFFER_SIZE 100
+#define BUFFER_SIZE 200
 #define MAX_STATUS 20
 #define PARK_OPEN 0
 #define PARK_CLOSED 1 //log = encerrado
@@ -35,7 +35,8 @@ typedef struct {
   int id;
   float parkedTime;
   char fifoName[FIFO_LENGTH];
-  int initialTicks;
+  float currentTick;
+  int numberOfTicks;
 } Vehicle;
 
 
@@ -53,7 +54,8 @@ void writeToFile (Vehicle *vehicle, int state){
 
 	//Formato - ticks , lugares, id , estado
 
-	sprintf(buffer, "%8d ; %4d ; %7d ; %s\n", vehicle->initialTicks, capacity-occupiedSpots, vehicle->id , status);
+
+	sprintf(buffer, "%-8f ; %4d ; %7d ; %s\n", (vehicle->numberOfTicks-vehicle->currentTick), capacity-occupiedSpots, vehicle->id , status);
 
 	write(fd_park_log, buffer,strlen(buffer));
 
@@ -68,16 +70,16 @@ void *parkAVehicle(void* arg){
 	Vehicle vehicle = *(Vehicle*) arg;
 	fdWrite = open(vehicle.fifoName,O_WRONLY);
 
-	printf("Vehicle number: %d \n",vehicle.id);
+	//printf("Vehicle number: %d \n",vehicle.id);
 
 	pthread_mutex_lock(&mutex);//Locks all the other threads.
 
-	if(occupiedSpots < capacity && state==PARK_OPEN ){ // space for the vehicle to enter
+	if(occupiedSpots < capacity && state!=PARK_CLOSED ){ // space for the vehicle to enter
 		occupiedSpots ++;
 		pthread_mutex_unlock(&mutex); //Unlocks all the other threads.
 		printf("Vehicle %d is parking ...\n", vehicle.id);
 		state = PARKING_VEHICLE;
-		writeToFile(&vehicle, PARKING_VEHICLE);
+		writeToFile(&vehicle, state);
 		usleep(vehicle.parkedTime * 1000); // suspends execution of the calling thread, in miliseconds (*1000);
 		occupiedSpots--;
 		state = LEAVING_VEHICLE;
@@ -124,7 +126,7 @@ void *northFunc(void *arg){
 		if(vehicle.id == LAST_VEHICLE_ID)
 			break;
 		else if(readRet > 0 ){ // if = 0 it means there is nothing else to read from the fifo.
-			printf("North entrance vehicle id: %d",vehicle.id);
+			printf("North entrance vehicle %d\n",vehicle.id);
 			if(pthread_create(&northEntry,NULL,parkAVehicle,&vehicle) != 0)
 				perror("Error on creating thread for North Entrance \n");
 		}
@@ -156,7 +158,7 @@ void *southFunc(void *arg){
 			if(vehicle.id == LAST_VEHICLE_ID)
 				break;
 			else if(readRet > 0 ){ // if = 0 it means there is nothing else to read from the fifo.
-				printf("South entrance vehicle id: %d",vehicle.id);
+				printf("South entrance vehicle %d\n",vehicle.id);
 				if(pthread_create(&southEntry,NULL,parkAVehicle,&vehicle) !=0)
 					perror("Error on creating thread for South Entrance \n");
 			}
@@ -189,7 +191,7 @@ void *eastFunc(void *arg){
 			if(vehicle.id == LAST_VEHICLE_ID)
 				break;
 			else if(readRet > 0 ){ // if = 0 it means there is nothing else to read from the fifo.
-				printf("East entrance vehicle id: %d",vehicle.id);
+				printf("East entrance vehicle %d\n",vehicle.id);
 				if(pthread_create(&eastEntry,NULL,parkAVehicle,&vehicle) != 0)
 					perror("Error on creating thread for East Entrance \n");
 			}
@@ -222,7 +224,7 @@ void *westFunc(void *arg){
 				if(vehicle.id == LAST_VEHICLE_ID)
 					break;
 				else if(readRet > 0 ){ // if = 0 it means there is nothing else to read from the fifo.
-					printf("West entrance vehicle id: %d",vehicle.id);
+					printf("West entrance vehicle %d\n",vehicle.id);
 					if(pthread_create(&westEntry,NULL,parkAVehicle,&vehicle) != 0)
 						perror("Error on creating thread for West Entrance \n");
 				}
@@ -247,8 +249,6 @@ void close_park(){
 	int fdWest = open("fifoW", O_WRONLY);
 		if(fdWest < 0) perror("Error opening West Fifo... \n");
 
-
-
 	write(fdNorth, &lastVehicle, sizeof(Vehicle));
 	write(fdSouth, &lastVehicle, sizeof(Vehicle));
 	write(fdEast, &lastVehicle, sizeof(Vehicle));
@@ -257,7 +257,10 @@ void close_park(){
 	close(fdSouth);
 	close(fdEast);
 	close(fdWest);
-
+	unlink("fifoN");
+	unlink("fifoS");
+	unlink("fifoE");
+	unlink("fifoW");
 
 }
 
@@ -290,7 +293,7 @@ int main (int argc, char* argv[]){
 
 	sleep(openTime); // wait for the park to close
 
-	printf("Park closed! \n");
+	printf("Park closed!\n");
 	parkOpen = PARK_CLOSED;
 	state = PARK_CLOSED;
 	close_park();
@@ -298,10 +301,10 @@ int main (int argc, char* argv[]){
 	if(pthread_join(northThread,NULL) !=0) perror("Can't wait for North thread");
 	if(pthread_join(southThread,NULL) !=0) perror("Can't wait for South thread");
 	if(pthread_join(eastThread,NULL) !=0) perror("Can't wait for East thread");
-	if(pthread_join(westThread,NULL) !=0) perror("Can't wait for West thread");;
+	if(pthread_join(westThread,NULL) !=0) perror("Can't wait for West thread");
 
-	printf("Waiting for all the cars to leave ... \n");
 	while(occupiedSpots != 0);
+	printf("Waiting for all the cars to leave ... \n");
 	printf("The park is now empty! \n");
 
 	pthread_mutex_destroy(&mutex);
