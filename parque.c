@@ -79,7 +79,7 @@ void *parkAVehicle(void* arg){
 		pthread_mutex_unlock(&mutex); //Unlocks all the other threads.
 		printf("Vehicle %d is parking ...\n", vehicle.id);
 		state = PARKING_VEHICLE;
-		writeToFile(&vehicle, state);
+		writeToFile(&vehicle, PARKING_VEHICLE);
 		usleep(vehicle.parkedTime * 1000); // suspends execution of the calling thread, in miliseconds (*1000);
 		occupiedSpots--;
 		state = LEAVING_VEHICLE;
@@ -271,7 +271,8 @@ int main (int argc, char* argv[]){
 		exit(1);
 	}
 
-
+	FILE*fd=fopen("parque.log","w");
+	fclose(fd);
 	fd_park_log = open(PARK_LOG, O_WRONLY | O_CREAT , 0600);
 	if(fd_park_log <0){
 		perror ("Error opening parque.log");
