@@ -23,7 +23,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 float clockUnit;
 float genTime;
-int id = 0;
+int id = 1;
 int fd_gerador_log;
 
 typedef enum {NORTH, SOUTH, EAST, WEST} Direction;
@@ -36,29 +36,34 @@ typedef struct {
   char fifoName[FIFO_LENGTH] ;
   float currentTick;
   int numberOfTicks;
+  int tLife;
 } Vehicle;
 
-/*
-void writeToFile(Vehicle vehicle, int state){
+void writeToFile(Vehicle *vehicle, int state){
 
 	char buffer[BUFFER_SIZE];
 	char status[MAX_STATUS];
 	char dest[DEST];
 
+	printf("STATE: %d\n",state);
+
 	if (state == 2) strcpy(status, "cheio");
 	if (state == 4) strcpy(status, "entrada");
 	if (state == 5) strcpy(status, "saida");
 
-	if (vehicle.direction == "NORTH") strcpy (dest, "N");
-	if (vehicle.direction == "SOUTH") strcpy (dest, "S");
-	if (vehicle.direction == "EAST") strcpy (dest, "E");
-	if (vehicle.direction == "WEST") strcpy (dest, "O");
+	int tFinal = clock()-vehicle->tLife;
 
+	printf("STATUS: %s \n",status);
+	if (vehicle->direction == NORTH) strcpy (dest, "N");
+	if (vehicle->direction == SOUTH) strcpy (dest, "S");
+	if (vehicle->direction == EAST) strcpy (dest, "E");
+	if (vehicle->direction == WEST) strcpy (dest, "O");
 
+	//Format: "t(ticks) ; id_viat ; dest ; t_estacion ; t_vida ; observ \n";
 
+	sprintf(buffer, "%-8f ; %7d ;    %s   ; %10f ; %6d ; %s\n", (vehicle->numberOfTicks-vehicle->currentTick), vehicle->id, dest, vehicle->parkedTime/100, tFinal, status);
+	write(fd_gerador_log, buffer,strlen(buffer));
 }
-
-*/
 
 void* vehicleFunc(void *arg){
 	void *ret = NULL;
@@ -67,6 +72,8 @@ void* vehicleFunc(void *arg){
 	sprintf(fifoPath, "/tmp/%s", vehicle.fifoName);
 	mkfifo(fifoPath,0660);
 	int fdWrite;
+	int fdRead;
+	int state;
 
 	//printf("Entered in thread \n"); dá print dist
 
@@ -88,10 +95,15 @@ void* vehicleFunc(void *arg){
 
 	if(fdWrite != -1){
 		write(fdWrite,&vehicle,sizeof(Vehicle));
-		close(fdWrite);
-	}
+	}close(fdWrite);
 
-	close(fdWrite);
+	fdRead = open(fifoPath,O_RDONLY);
+	if(fdRead != -1){
+		read(fdRead,&state,sizeof(int));
+	}
+	printf("parou \n");
+	writeToFile(&vehicle,state);
+	printf("1 \n");
 	unlink(fifoPath);
 
 	return ret;
@@ -101,6 +113,10 @@ int genVehicle(float tick, float totalTick){
 	Vehicle vehicle;
 	vehicle.id = id;
 	id++;
+
+
+
+	vehicle.tLife = clock();
 
 	pthread_t mainVehicle;
 	vehicle.numberOfTicks = totalTick;
@@ -155,7 +171,6 @@ int genVehicle(float tick, float totalTick){
 	else if(park < 5) nextCarTime = 1;
 	else nextCarTime = 0;
 
-
 	return nextCarTime; //tempo ate ao proximo veiculo
 }
 
@@ -174,10 +189,16 @@ int main(int argc, char* argv[]){
 	float totalTicks;
 	int ticksForNextCar = 0;
 
+	FILE*fd=fopen("gerador.log","w");
+	fclose(fd);
+
 	fd_gerador_log = open(GERADOR_LOG, O_WRONLY | O_CREAT , 0600);
 	if (fd_gerador_log < 0){
 		perror("Error creation gerador.log");
 	}
+
+	char buffer[] = "t(ticks) ; id_viat ; dest ; t_estacion ; t_vida ; observ \n";
+	write(fd_gerador_log, buffer, strlen(buffer));
 
 	numberOfTicks = (genTime / clockUnit) *1000; // Number of events that are going to happen
 	totalTicks = numberOfTicks;

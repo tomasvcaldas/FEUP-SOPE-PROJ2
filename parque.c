@@ -28,6 +28,7 @@ int openTime;
 int occupiedSpots = 0;
 int fd_park_log;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t fMutex = PTHREAD_MUTEX_INITIALIZER;
 typedef enum {NORTH, SOUTH, EAST, WEST} Direction;
 
 typedef struct {
@@ -37,6 +38,7 @@ typedef struct {
   char fifoName[FIFO_LENGTH];
   float currentTick;
   int numberOfTicks;
+  int state;
 } Vehicle;
 
 
@@ -45,6 +47,7 @@ void writeToFile (Vehicle *vehicle, int state){
 	char buffer[BUFFER_SIZE];
 	char status[MAX_STATUS];
 
+	float tick;
 
 	if (state == 1) strcpy(status, "encerrado");
 	if (state == 2) strcpy(status, "cheio");
@@ -54,8 +57,13 @@ void writeToFile (Vehicle *vehicle, int state){
 
 	//Formato - ticks , lugares, id , estado
 
+	if(state == LEAVING_VEHICLE)
+		tick = vehicle->numberOfTicks - vehicle->currentTick + vehicle->parkedTime/100;
+	else
+		tick = vehicle->numberOfTicks - vehicle->currentTick;
 
-	sprintf(buffer, "%-8f ; %4d ; %7d ; %s\n", (vehicle->numberOfTicks-vehicle->currentTick), capacity-occupiedSpots, vehicle->id , status);
+
+	sprintf(buffer, "%-8f ; %4d ; %7d ; %s\n", (tick), capacity-occupiedSpots, vehicle->id , status);
 
 	write(fd_park_log, buffer,strlen(buffer));
 
@@ -69,8 +77,9 @@ void *parkAVehicle(void* arg){
 	state = ENTERING_VEHICLE;
 	Vehicle vehicle = *(Vehicle*) arg;
 	fdWrite = open(vehicle.fifoName,O_WRONLY);
+	int retWrite;
 
-	//printf("Vehicle number: %d \n",vehicle.id);
+
 
 	pthread_mutex_lock(&mutex);//Locks all the other threads.
 
@@ -79,7 +88,12 @@ void *parkAVehicle(void* arg){
 		pthread_mutex_unlock(&mutex); //Unlocks all the other threads.
 		printf("Vehicle %d is parking ...\n", vehicle.id);
 		state = PARKING_VEHICLE;
-		writeToFile(&vehicle, PARKING_VEHICLE);
+		retWrite = write(fdWrite,&state,sizeof(int));
+		if(retWrite == 0) perror("Error on writing state! \n");
+		pthread_mutex_lock(&fMutex);
+		writeToFile(&vehicle, state);
+		pthread_mutex_unlock(&fMutex);
+		pthread_mutex_unlock(&mutex);
 		usleep(vehicle.parkedTime * 1000); // suspends execution of the calling thread, in miliseconds (*1000);
 		occupiedSpots--;
 		state = LEAVING_VEHICLE;
@@ -97,9 +111,14 @@ void *parkAVehicle(void* arg){
 		state = PARK_FULL;
 	}
 
-	write(fdWrite,&state,sizeof(int));
-	writeToFile(&vehicle, state);
+	retWrite = write(fdWrite,&state,sizeof(int));
+	if(retWrite == 0) perror("Error on writing state! \n");
 
+	pthread_mutex_lock(&fMutex);
+	writeToFile(&vehicle, state);
+	pthread_mutex_unlock(&fMutex);
+
+	close(fdWrite);
 	return ret;
 }
 
@@ -295,10 +314,9 @@ int main (int argc, char* argv[]){
 	sleep(openTime); // wait for the park to close
 
 	printf("Park closed!\n");
-	parkOpen = PARK_CLOSED;
+	//parkOpen = PARK_CLOSED;
 	state = PARK_CLOSED;
 	close_park();
-
 	if(pthread_join(northThread,NULL) !=0) perror("Can't wait for North thread");
 	if(pthread_join(southThread,NULL) !=0) perror("Can't wait for South thread");
 	if(pthread_join(eastThread,NULL) !=0) perror("Can't wait for East thread");
