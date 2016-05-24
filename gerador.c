@@ -23,7 +23,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 float clockUnit;
 float genTime;
-int id = 1;
+int id = 0;
 int fd_gerador_log;
 
 typedef enum {NORTH, SOUTH, EAST, WEST} Direction;
@@ -97,13 +97,17 @@ void* vehicleFunc(void *arg){
 		write(fdWrite,&vehicle,sizeof(Vehicle));
 	}close(fdWrite);
 
+	printf("FIFONAME: |%s| \n",vehicle.fifoName);
 	fdRead = open(fifoPath,O_RDONLY);
 	if(fdRead != -1){
+		printf("entrou \n");
 		read(fdRead,&state,sizeof(int));
 	}
-	printf("parou \n");
+	else
+		perror("erro \n");
+
 	writeToFile(&vehicle,state);
-	printf("1 \n");
+
 	unlink(fifoPath);
 
 	return ret;
@@ -111,10 +115,9 @@ void* vehicleFunc(void *arg){
 
 int genVehicle(float tick, float totalTick){
 	Vehicle vehicle;
-	vehicle.id = id;
+
 	id++;
-
-
+	vehicle.id = id;
 
 	vehicle.tLife = clock();
 

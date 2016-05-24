@@ -75,8 +75,11 @@ void *parkAVehicle(void* arg){
 	void* ret=NULL;
 	int fdWrite;
 	state = ENTERING_VEHICLE;
+
 	Vehicle vehicle = *(Vehicle*) arg;
-	fdWrite = open(vehicle.fifoName,O_WRONLY);
+	char fifoPath[64];
+	sprintf(fifoPath, "/tmp/%s", vehicle.fifoName);
+	fdWrite = open(fifoPath,O_WRONLY);
 	int retWrite;
 
 
@@ -314,6 +317,7 @@ int main (int argc, char* argv[]){
 	sleep(openTime); // wait for the park to close
 
 	printf("Park closed!\n");
+
 	//parkOpen = PARK_CLOSED;
 	state = PARK_CLOSED;
 	close_park();
